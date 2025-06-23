@@ -33,7 +33,35 @@ from moviepy.editor import VideoFileClip
 from helpers.bq_service import BigQueryService
 from feature_configs.features import get_feature_configs
 from configuration import FFMPEG_BUFFER, FFMPEG_BUFFER_REDUCED, Configuration
+import re
 
+def extract_timestamps_from_explanation(explanation: str) -> list[str]:
+    """
+    Extract timestamps from LLM explanation text.
+    
+    Args:
+        explanation: The LLM explanation text containing timestamps
+        
+    Returns:
+        List of extracted timestamps as strings
+    """
+    if not explanation:
+        return []
+    
+    # Pattern to match MM:SS format timestamps (covers both 1:30 and 00:30 formats)
+    timestamp_pattern = r'(\d{1,2}:\d{2})'
+    
+    matches = re.findall(timestamp_pattern, explanation)
+    
+    # Remove duplicates while preserving order
+    seen = set()
+    unique_timestamps = []
+    for ts in matches:
+        if ts not in seen:
+            seen.add(ts)
+            unique_timestamps.append(ts)
+    
+    return unique_timestamps
 
 def get_blob(uri: str) -> any:
     """Return GCS blob object from full uri."""
@@ -320,7 +348,7 @@ def get_feature_by_id(features: list[dict], feature_id: str) -> list[str]:
 
 
 def get_table_columns_schema() -> list[str]:
-    """Gets the table columns schema for the assessments table in BQ."""
+    """Gets the table columns schema for the assessments table in BQ with timestamp fields."""
     return [
         {
             "column": "execution_timestamp",
@@ -345,6 +373,9 @@ def get_table_columns_schema() -> list[str]:
         {"column": "using_llms", "data_type": bigquery.enums.SqlTypeNames.BOOLEAN},
         {"column": "llms_evaluation", "data_type": bigquery.enums.SqlTypeNames.BOOLEAN},
         {"column": "llm_explanation", "data_type": bigquery.enums.SqlTypeNames.STRING},
+        {"column": "extracted_timestamps", "data_type": bigquery.enums.SqlTypeNames.STRING},  # NEW
+        {"column": "first_timestamp", "data_type": bigquery.enums.SqlTypeNames.STRING},       # NEW
+        {"column": "timestamp_count", "data_type": bigquery.enums.SqlTypeNames.INTEGER},      # NEW
         {"column": "prompt_params", "data_type": bigquery.enums.SqlTypeNames.STRING},
         {"column": "llm_params", "data_type": bigquery.enums.SqlTypeNames.STRING},
     ]
@@ -387,13 +418,16 @@ def build_features_for_bq(video_uri: str, brand_name: str) -> list[dict]:
                 "feature_name": f_config.get("name"),
                 "feature_category": f_config.get("category"),
                 "feature_criteria": f_config.get("criteria"),
-                "using_annotations": False,  # Default value to build a correct schema from the beginning
-                "annotations_evaluation": False,  # Default value to build a correct schema from the beginning
-                "using_llms": False,  # Default value to build a correct schema from the beginning
-                "llms_evaluation": False,  # Default value to build a correct schema from the beginning
-                "llm_explanation": "",  # Default value to build a correct schema from the beginning
-                "prompt_params": "",  # Default value to build a correct schema from the beginning
-                "llm_params": "",  # Default value to build a correct schema from the beginning
+                "using_annotations": False,
+                "annotations_evaluation": False,
+                "using_llms": False,
+                "llms_evaluation": False,
+                "llm_explanation": "",
+                "extracted_timestamps": "[]",  # NEW - Empty JSON array as default
+                "first_timestamp": "",         # NEW - Empty string as default
+                "timestamp_count": 0,          # NEW - Zero as default
+                "prompt_params": "",
+                "llm_params": "",
             }
         )
     return assessment_bq
@@ -441,11 +475,17 @@ def update_llms_evaluated_features(
             )
 
             if feature_found:
+                explanation = llms_eval_feature.get("llm_explanation", "")
+                
+                # NEW - Extract timestamps from explanation
+                timestamps = extract_timestamps_from_explanation(explanation)
+                
                 feature_found["using_llms"] = True
                 feature_found["llms_evaluation"] = llms_eval_feature.get("detected")
-                feature_found["llm_explanation"] = llms_eval_feature.get(
-                    "llm_explanation"
-                )
+                feature_found["llm_explanation"] = explanation
+                feature_found["extracted_timestamps"] = json.dumps(timestamps)  # NEW
+                feature_found["first_timestamp"] = timestamps[0] if timestamps else ""  # NEW
+                feature_found["timestamp_count"] = len(timestamps)  # NEW
                 feature_found["prompt_params"] = str(prompt_params)
                 feature_found["llm_params"] = str(llm_params)
             else:
@@ -486,23 +526,25 @@ def store_in_bq(
         columns = get_table_columns()
         dataframe = pandas.DataFrame(
             assessment_bq,
-            # In the loaded table, the column order reflects the order of the
-            # columns in the DataFrame.
             columns=columns,
         )
         # Create dataset if it does not exist
         bq_service.create_dataset(config.bq_dataset_name, config.project_zone)
         schema = get_table_schema()
-        table_created = bq_service.create_table(config.bq_dataset_name, config.bq_table_name, schema)
+        
+        # Use a new table name with timestamps
+        new_table_name = f"{config.bq_table_name}_with_timestamps"
+        table_created = bq_service.create_table(config.bq_dataset_name, new_table_name, schema)
+        
         # Wait for table creation
         if table_created:
-            print(f"Inserting {len(assessment_bq)} rows into BQ... \n")
+            print(f"Inserting {len(assessment_bq)} rows into BQ table {new_table_name}... \n")
             bq_service.load_table_from_dataframe(
-                config.bq_dataset_name, config.bq_table_name, dataframe, schema, "WRITE_APPEND"
+                config.bq_dataset_name, new_table_name, dataframe, schema, "WRITE_APPEND"
             )
         else:
             print(
-                f"Error: ABCD assessments not loaded to table {config.bq_dataset_name}.{config.bq_table_name} because the table could not be created. \n"
+                f"Error: ABCD assessments not loaded to table {config.bq_dataset_name}.{new_table_name} because the table could not be created. \n"
             )
     else:
         print(
