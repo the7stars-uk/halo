@@ -28,7 +28,6 @@ from prompts.prompts_generator import PromptParams, get_abcds_prompt
 from feature_configs.features import get_groups_of_features
 from helpers.generic_helpers import extract_timestamps_from_explanation
 
-
 def evaluate_features(
     config: Configuration,
     evaluation_details: dict,
@@ -75,8 +74,8 @@ def evaluate_abcd_features_using_llms(
     feature_evaluations = []
     tasks = []
     feature_groups = get_groups_of_features()
-    uri = video_uri  # use full video uri by default
 
+    uri = video_uri  # use full video uri by default
     for group_key in feature_groups:
         feature_configs = feature_groups.get(group_key)
         # Process the features that are not grouped individually
@@ -146,7 +145,7 @@ def evaluate_abcd_features_using_llms(
                     "detected": detected,
                     "llm_explanation": evaluated_feature.get("llm_explanation"),
                     "extracted_timestamps": timestamps,
-                    "first_timestamp": timestamps[0] if len(timestamps) > 0 else -1,
+                    "first_timestamp": timestamps[0] if timestamps else "",
                     "timestamp_count": len(timestamps),
                 }
             )
