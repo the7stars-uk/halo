@@ -490,7 +490,7 @@ def update_llms_evaluated_features(
                 feature_found["llms_evaluation"] = llms_eval_feature.get("detected")
                 feature_found["llm_explanation"] = explanation
                 feature_found["extracted_timestamps"] = json.dumps(timestamps)  # NEW
-                feature_found["first_timestamp"] = timestamps[0] if timestamps else ""  # NEW
+                feature_found["first_timestamp"] = timestamps[0] if len(timestamps) > 0 else -1  # NEW
                 feature_found["timestamp_count"] = len(timestamps)  # NEW
                 feature_found["prompt_params"] = str(prompt_params)
                 feature_found["llm_params"] = str(llm_params)
