@@ -59,13 +59,17 @@ def extract_timestamps_from_explanation(explanation: str) -> list[int]:
     for ts in matches:
         if ts not in seen:
             seen.add(ts)
-            # Convert MM:SS to seconds
-            parts = ts.split(':')
-            if len(parts) == 2:
-                minutes = int(parts[0])
-                seconds = int(parts[1])
-                timestamp_seconds = minutes * 60 + seconds
-                unique_timestamps.append(timestamp_seconds)
+            try:
+                # Convert MM:SS to seconds
+                parts = ts.split(':')
+                if len(parts) == 2:
+                    minutes = int(parts[0])
+                    seconds = int(parts[1])
+                    timestamp_seconds = minutes * 60 + seconds
+                    unique_timestamps.append(timestamp_seconds)
+            except (ValueError, IndexError):
+                # Skip invalid timestamps
+                continue
     
     return unique_timestamps
     
@@ -483,15 +487,19 @@ def update_llms_evaluated_features(
             if feature_found:
                 explanation = llms_eval_feature.get("llm_explanation", "")
                 
-                # NEW - Extract timestamps from explanation
+                # Extract timestamps from explanation (returns list of integers)
                 timestamps = extract_timestamps_from_explanation(explanation)
+                
+                # Ensure proper data types
+                first_timestamp = int(timestamps[0]) if len(timestamps) > 0 else -1
+                timestamp_count = int(len(timestamps))
                 
                 feature_found["using_llms"] = True
                 feature_found["llms_evaluation"] = llms_eval_feature.get("detected")
                 feature_found["llm_explanation"] = explanation
-                feature_found["extracted_timestamps"] = json.dumps(timestamps)  # NEW
-                feature_found["first_timestamp"] = timestamps[0] if len(timestamps) > 0 else -1  # NEW
-                feature_found["timestamp_count"] = len(timestamps)  # NEW
+                feature_found["extracted_timestamps"] = json.dumps(timestamps)  # JSON string of integers
+                feature_found["first_timestamp"] = first_timestamp  # Integer
+                feature_found["timestamp_count"] = timestamp_count  # Integer
                 feature_found["prompt_params"] = str(prompt_params)
                 feature_found["llm_params"] = str(llm_params)
             else:
