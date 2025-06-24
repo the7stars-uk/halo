@@ -50,7 +50,7 @@ def extract_timestamps_from_explanation(explanation: str) -> list[str]:
     
     # Pattern to match MM:SS format timestamps (covers both 1:30 and 00:30 formats)
     timestamp_patterns = r'(\d{1,2}:\d{2}:\d{2}|\d{1,2}:\d{2})'
-    matches = re.findall(pattern, explanation)
+    matches = re.findall(timestamp_patterns, explanation)
     
     # Remove duplicates while preserving order
     seen = set()
