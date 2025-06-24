@@ -35,15 +35,15 @@ from feature_configs.features import get_feature_configs
 from configuration import FFMPEG_BUFFER, FFMPEG_BUFFER_REDUCED, Configuration
 import re
 
-def extract_timestamps_from_explanation(explanation: str) -> list[int]:
+def extract_timestamps_from_explanation(explanation: str) -> list[str]:
     """
-    Extract timestamps from LLM explanation text and convert to seconds.
+    Extract timestamps from LLM explanation text.
     
     Args:
         explanation: The LLM explanation text containing timestamps
         
     Returns:
-        List of extracted timestamps in seconds
+        List of extracted timestamps as strings
     """
     if not explanation:
         return []
@@ -53,26 +53,16 @@ def extract_timestamps_from_explanation(explanation: str) -> list[int]:
     
     matches = re.findall(timestamp_pattern, explanation)
     
-    # Remove duplicates while preserving order and convert to seconds
+    # Remove duplicates while preserving order
     seen = set()
     unique_timestamps = []
     for ts in matches:
         if ts not in seen:
             seen.add(ts)
-            try:
-                # Convert MM:SS to seconds
-                parts = ts.split(':')
-                if len(parts) == 2:
-                    minutes = int(parts[0])
-                    seconds = int(parts[1])
-                    timestamp_seconds = minutes * 60 + seconds
-                    unique_timestamps.append(timestamp_seconds)
-            except (ValueError, IndexError):
-                # Skip invalid timestamps
-                continue
+            unique_timestamps.append(ts)
     
     return unique_timestamps
-    
+
 def get_blob(uri: str) -> any:
     """Return GCS blob object from full uri."""
     bucket, path = uri.replace("gs://", "").split("/", 1)
@@ -384,7 +374,7 @@ def get_table_columns_schema() -> list[str]:
         {"column": "llms_evaluation", "data_type": bigquery.enums.SqlTypeNames.BOOLEAN},
         {"column": "llm_explanation", "data_type": bigquery.enums.SqlTypeNames.STRING},
         {"column": "extracted_timestamps", "data_type": bigquery.enums.SqlTypeNames.STRING},  # NEW
-        {"column": "first_timestamp", "data_type": bigquery.enums.SqlTypeNames.INTEGER},       # NEW
+        {"column": "first_timestamp", "data_type": bigquery.enums.SqlTypeNames.STRING},       # NEW
         {"column": "timestamp_count", "data_type": bigquery.enums.SqlTypeNames.INTEGER},      # NEW
         {"column": "prompt_params", "data_type": bigquery.enums.SqlTypeNames.STRING},
         {"column": "llm_params", "data_type": bigquery.enums.SqlTypeNames.STRING},
@@ -434,7 +424,7 @@ def build_features_for_bq(video_uri: str, brand_name: str) -> list[dict]:
                 "llms_evaluation": False,
                 "llm_explanation": "",
                 "extracted_timestamps": "[]",  # NEW - Empty JSON array as default
-                "first_timestamp": -1,         # NEW - Empty string as default
+                "first_timestamp": "",         # NEW - Empty string as default
                 "timestamp_count": 0,          # NEW - Zero as default
                 "prompt_params": "",
                 "llm_params": "",
@@ -487,29 +477,15 @@ def update_llms_evaluated_features(
             if feature_found:
                 explanation = llms_eval_feature.get("llm_explanation", "")
                 
-                # Extract timestamps from explanation (returns list of integers)
+                # NEW - Extract timestamps from explanation
                 timestamps = extract_timestamps_from_explanation(explanation)
-
-                # DEBUG: Print types and values
-                print(f"DEBUG - Feature: {llms_eval_feature.get('id')}")
-                print(f"DEBUG - Timestamps: {timestamps}, type: {type(timestamps)}")
-                
-                first_timestamp = int(timestamps[0]) if len(timestamps) > 0 else -1
-                timestamp_count = int(len(timestamps))
-                
-                print(f"DEBUG - first_timestamp: {first_timestamp}, type: {type(first_timestamp)}")
-                print(f"DEBUG - timestamp_count: {timestamp_count}, type: {type(timestamp_count)}")
-                
-                # Ensure proper data types
-                first_timestamp = int(timestamps[0]) if len(timestamps) > 0 else -1
-                timestamp_count = int(len(timestamps))
                 
                 feature_found["using_llms"] = True
                 feature_found["llms_evaluation"] = llms_eval_feature.get("detected")
                 feature_found["llm_explanation"] = explanation
-                feature_found["extracted_timestamps"] = json.dumps(timestamps)  # JSON string of integers
-                feature_found["first_timestamp"] = first_timestamp  # Integer
-                feature_found["timestamp_count"] = timestamp_count  # Integer
+                feature_found["extracted_timestamps"] = json.dumps(timestamps)  # NEW
+                feature_found["first_timestamp"] = timestamps[0] if timestamps else ""  # NEW
+                feature_found["timestamp_count"] = len(timestamps)  # NEW
                 feature_found["prompt_params"] = str(prompt_params)
                 feature_found["llm_params"] = str(llm_params)
             else:
