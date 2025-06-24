@@ -25,8 +25,8 @@ from configuration import Configuration
 from helpers.generic_helpers import get_reduced_uri, execute_tasks_in_parallel
 from helpers.vertex_ai_service import LLMParameters, detect_features_with_llm_in_bulk
 from prompts.prompts_generator import PromptParams, get_abcds_prompt
-from feature_configs.features import get_groups_of_features
-
+from feature_configs.features import get_groups_of_features, get_enhanced_feature_configs
+from helpers.generic_helpers import extract_timestamps_from_explanation
 
 def evaluate_features(
     config: Configuration,
@@ -73,9 +73,12 @@ def evaluate_abcd_features_using_llms(
     """
     feature_evaluations = []
     tasks = []
-    feature_groups = get_groups_of_features()
+    enhanced_configs = get_enhanced_feature_configs()
+    grouped_features = {}
+    for d in enhanced_configs:
+      grouped_features.setdefault(d["group_by"], []).append(d)
+    feature_groups = grouped_features    
     uri = video_uri  # use full video uri by default
-
     for group_key in feature_groups:
         feature_configs = feature_groups.get(group_key)
         # Process the features that are not grouped individually
@@ -133,6 +136,9 @@ def evaluate_abcd_features_using_llms(
                 or evaluated_feature.get("detected") == "True"
                 or evaluated_feature.get("detected") == "true"
             )
+
+            explanation = evaluated_feature.get("llm_explanation", "")
+            timestamps = extract_timestamps_from_explanation(explanation)
             feature_evaluations.append(
                 {
                     "id": evaluated_feature.get("id"),
@@ -141,6 +147,9 @@ def evaluate_abcd_features_using_llms(
                     "criteria": evaluated_feature.get("criteria"),
                     "detected": detected,
                     "llm_explanation": evaluated_feature.get("llm_explanation"),
+                    "extracted_timestamps": timestamps,
+                    "first_timestamp": timestamps[0] if timestamps else "",
+                    "timestamp_count": len(timestamps),
                 }
             )
 
