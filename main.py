@@ -41,7 +41,7 @@ from helpers.vertex_ai_service import LLMParameters
 from helpers.bq_service import BigQueryService
 from configuration import Configuration
 from utils import parse_args, build_abcd_params_config
-
+from helpers.generic_helpers import extract_timestamps_from_explanation
 
 def execute_abcd_assessment_for_videos(config: Configuration):
   """Execute ABCD Assessment for all brand videos in GCS"""
