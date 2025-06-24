@@ -379,7 +379,7 @@ def get_table_columns_schema() -> list[str]:
         {"column": "using_llms", "data_type": bigquery.enums.SqlTypeNames.BOOLEAN},
         {"column": "llms_evaluation", "data_type": bigquery.enums.SqlTypeNames.BOOLEAN},
         {"column": "llm_explanation", "data_type": bigquery.enums.SqlTypeNames.STRING},
-        {"column": "extracted_timestamps", "data_type": bigquery.enums.SqlTypeNames.INTEGER},  # NEW
+        {"column": "extracted_timestamps", "data_type": bigquery.enums.SqlTypeNames.STRING},  # NEW
         {"column": "first_timestamp", "data_type": bigquery.enums.SqlTypeNames.INTEGER},       # NEW
         {"column": "timestamp_count", "data_type": bigquery.enums.SqlTypeNames.INTEGER},      # NEW
         {"column": "prompt_params", "data_type": bigquery.enums.SqlTypeNames.STRING},
