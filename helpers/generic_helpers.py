@@ -489,6 +489,16 @@ def update_llms_evaluated_features(
                 
                 # Extract timestamps from explanation (returns list of integers)
                 timestamps = extract_timestamps_from_explanation(explanation)
+
+                # DEBUG: Print types and values
+                print(f"DEBUG - Feature: {llms_eval_feature.get('id')}")
+                print(f"DEBUG - Timestamps: {timestamps}, type: {type(timestamps)}")
+                
+                first_timestamp = int(timestamps[0]) if len(timestamps) > 0 else -1
+                timestamp_count = int(len(timestamps))
+                
+                print(f"DEBUG - first_timestamp: {first_timestamp}, type: {type(first_timestamp)}")
+                print(f"DEBUG - timestamp_count: {timestamp_count}, type: {type(timestamp_count)}")
                 
                 # Ensure proper data types
                 first_timestamp = int(timestamps[0]) if len(timestamps) > 0 else -1
