@@ -35,15 +35,15 @@ from feature_configs.features import get_feature_configs
 from configuration import FFMPEG_BUFFER, FFMPEG_BUFFER_REDUCED, Configuration
 import re
 
-def extract_timestamps_from_explanation(explanation: str) -> list[str]:
+def extract_timestamps_from_explanation(explanation: str) -> list[int]:
     """
-    Extract timestamps from LLM explanation text.
+    Extract timestamps from LLM explanation text and convert to seconds.
     
     Args:
         explanation: The LLM explanation text containing timestamps
         
     Returns:
-        List of extracted timestamps as strings
+        List of extracted timestamps in seconds
     """
     if not explanation:
         return []
@@ -53,16 +53,22 @@ def extract_timestamps_from_explanation(explanation: str) -> list[str]:
     
     matches = re.findall(timestamp_pattern, explanation)
     
-    # Remove duplicates while preserving order
+    # Remove duplicates while preserving order and convert to seconds
     seen = set()
     unique_timestamps = []
     for ts in matches:
         if ts not in seen:
             seen.add(ts)
-            unique_timestamps.append(ts)
+            # Convert MM:SS to seconds
+            parts = ts.split(':')
+            if len(parts) == 2:
+                minutes = int(parts[0])
+                seconds = int(parts[1])
+                timestamp_seconds = minutes * 60 + seconds
+                unique_timestamps.append(timestamp_seconds)
     
     return unique_timestamps
-
+    
 def get_blob(uri: str) -> any:
     """Return GCS blob object from full uri."""
     bucket, path = uri.replace("gs://", "").split("/", 1)
@@ -373,7 +379,7 @@ def get_table_columns_schema() -> list[str]:
         {"column": "using_llms", "data_type": bigquery.enums.SqlTypeNames.BOOLEAN},
         {"column": "llms_evaluation", "data_type": bigquery.enums.SqlTypeNames.BOOLEAN},
         {"column": "llm_explanation", "data_type": bigquery.enums.SqlTypeNames.STRING},
-        {"column": "extracted_timestamps", "data_type": bigquery.enums.SqlTypeNames.STRING},  # NEW
+        {"column": "extracted_timestamps", "data_type": bigquery.enums.SqlTypeNames.INTEGER},  # NEW
         {"column": "first_timestamp", "data_type": bigquery.enums.SqlTypeNames.STRING},       # NEW
         {"column": "timestamp_count", "data_type": bigquery.enums.SqlTypeNames.INTEGER},      # NEW
         {"column": "prompt_params", "data_type": bigquery.enums.SqlTypeNames.STRING},
@@ -424,7 +430,7 @@ def build_features_for_bq(video_uri: str, brand_name: str) -> list[dict]:
                 "llms_evaluation": False,
                 "llm_explanation": "",
                 "extracted_timestamps": "[]",  # NEW - Empty JSON array as default
-                "first_timestamp": "",         # NEW - Empty string as default
+                "first_timestamp": -1,         # NEW - Empty string as default
                 "timestamp_count": 0,          # NEW - Zero as default
                 "prompt_params": "",
                 "llm_params": "",
