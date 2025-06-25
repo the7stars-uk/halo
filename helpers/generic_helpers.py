@@ -547,7 +547,7 @@ def store_in_bq(
         schema = get_table_schema()
         
         # Use a new table name with timestamps
-        new_table_name = f"{config.bq_table_name}_with_timestamps"
+        new_table_name = f"{config.bq_table_name}_with_timestamps_seconds"
         table_created = bq_service.create_table(config.bq_dataset_name, new_table_name, schema)
         
         # Wait for table creation
