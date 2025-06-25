@@ -145,7 +145,7 @@ def evaluate_abcd_features_using_llms(
                     "detected": detected,
                     "llm_explanation": evaluated_feature.get("llm_explanation"),
                     "extracted_timestamps": timestamps,
-                    "first_timestamp": timestamps[0] if timestamps else "",
+                    "first_timestamp": timestamps[0] if len(timestamps)>0 else -1,
                     "timestamp_count": len(timestamps),
                 }
             )
