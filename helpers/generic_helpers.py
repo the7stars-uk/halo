@@ -35,7 +35,7 @@ from feature_configs.features import get_feature_configs
 from configuration import FFMPEG_BUFFER, FFMPEG_BUFFER_REDUCED, Configuration
 import re
 
-def extract_timestamps_from_explanation(explanation: str) -> list[str]:
+def extract_timestamps_from_explanation(explanation: str) -> list[int]:
     """
     Extract timestamps from LLM explanation text.
     
@@ -58,7 +58,22 @@ def extract_timestamps_from_explanation(explanation: str) -> list[str]:
     for ts in matches:
         if ts not in seen:
             seen.add(ts)
-            unique_timestamps.append(ts)
+
+            parts = ts.split(":")
+            if(len(parts)==2):
+              minutes = int(parts[0])
+              seconds = int(parts[1])
+
+              timestamp_seconds = minutes * 60 + seconds
+              unique_timestamps
+
+            elif (len(parts)==3):
+              hours = int(parts[0])
+              minutes = int(parts[1])
+              seconds = int(parts[2]) 
+
+              timestamp_seconds = hours*3600 + minutes*60 + seconds
+            unique_timestamps.append(int(timestamp_seconds))
     
     return unique_timestamps
 
@@ -373,7 +388,7 @@ def get_table_columns_schema() -> list[str]:
         {"column": "llms_evaluation", "data_type": bigquery.enums.SqlTypeNames.BOOLEAN},
         {"column": "llm_explanation", "data_type": bigquery.enums.SqlTypeNames.STRING},
         {"column": "extracted_timestamps", "data_type": bigquery.enums.SqlTypeNames.STRING},  # NEW
-        {"column": "first_timestamp", "data_type": bigquery.enums.SqlTypeNames.STRING},       # NEW
+        {"column": "first_timestamp", "data_type": bigquery.enums.SqlTypeNames.INTEGER},       # NEW
         {"column": "timestamp_count", "data_type": bigquery.enums.SqlTypeNames.INTEGER},      # NEW
         {"column": "prompt_params", "data_type": bigquery.enums.SqlTypeNames.STRING},
         {"column": "llm_params", "data_type": bigquery.enums.SqlTypeNames.STRING},
@@ -423,7 +438,7 @@ def build_features_for_bq(video_uri: str, brand_name: str) -> list[dict]:
                 "llms_evaluation": False,
                 "llm_explanation": "",
                 "extracted_timestamps": "[]",  # NEW - Empty JSON array as default
-                "first_timestamp": "",         # NEW - Empty string as default
+                "first_timestamp": -1,         # NEW - Empty string as default
                 "timestamp_count": 0,          # NEW - Zero as default
                 "prompt_params": "",
                 "llm_params": "",
@@ -483,7 +498,7 @@ def update_llms_evaluated_features(
                 feature_found["llms_evaluation"] = llms_eval_feature.get("detected")
                 feature_found["llm_explanation"] = explanation
                 feature_found["extracted_timestamps"] = json.dumps(timestamps)  # NEW
-                feature_found["first_timestamp"] = timestamps[0] if timestamps else ""  # NEW
+                feature_found["first_timestamp"] = timestamps[0] if len(timestamps) > 0 else -1  # NEW
                 feature_found["timestamp_count"] = len(timestamps)  # NEW
                 feature_found["prompt_params"] = str(prompt_params)
                 feature_found["llm_params"] = str(llm_params)
